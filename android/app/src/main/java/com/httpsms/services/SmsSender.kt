@@ -90,10 +90,11 @@ object SmsSender {
 
     private fun postCallback(context: Context, messageId: String, status: String) {
         val serverUrl = Prefs.getServerUrl(context)
+        val apiKey    = Prefs.getApiKey(context)
         if (serverUrl.isBlank()) return
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                RetrofitClient.create(serverUrl).sendCallback(CallbackRequest(messageId, status))
+                RetrofitClient.create(serverUrl, apiKey).sendCallback(CallbackRequest(messageId, status))
             } catch (e: Exception) {
                 Log.e(TAG, "Callback failed for $messageId", e)
             }

@@ -35,12 +35,13 @@ class SmsReceiver : BroadcastReceiver() {
 
     private fun forwardToServer(context: Context, sender: String, body: String) {
         val serverUrl = Prefs.getServerUrl(context)
+        val apiKey    = Prefs.getApiKey(context)
         val deviceId  = Prefs.getDeviceId(context)
         if (serverUrl.isBlank() || deviceId.isBlank()) return
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                RetrofitClient.create(serverUrl)
+                RetrofitClient.create(serverUrl, apiKey)
                     .sendIncoming(IncomingRequest(sender, body, deviceId))
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to forward incoming SMS", e)
