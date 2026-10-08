@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HTTPSMS Dashboard</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --accent: #6c63ff;
+      --accent2: #00d4aa;
+      --text: #e2e8f0;
+      --muted: #8892a4;
+      --danger: #ff4d6d;
+      --success: #00d4aa;
+      --warn: #f59e0b;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* Layout */
+    .layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 0;
+      position: fixed;
+      top: 0; left: 0; bottom: 0;
+    }
+    .sidebar-logo {
+      padding: 0 20px 24px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--accent);
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+    .sidebar-logo span { color: var(--accent2); }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 20px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 0.9rem;
+      transition: all 0.15s;
+      border-left: 3px solid transparent;
+    }
+    .nav-item:hover { color: var(--text); background: rgba(108,99,255,0.08); }
+    .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(108,99,255,0.1); }
+    .nav-item .icon { font-size: 1.1rem; }
+
+    /* Main */
+    .main {
+      margin-left: 220px;
+      flex: 1;
+      padding: 32px;
+      max-width: calc(100vw - 220px);
+    }
+
+    /* Pages */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* Page header */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+    .page-title { font-size: 1.5rem; font-weight: 600; }
+    .page-subtitle { font-size: 0.85rem; color: var(--muted); margin-top: 4px; }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+    }
+    .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 28px; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; }
+    .stat-label { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 2rem; font-weight: 700; margin-top: 6px; }
+    .stat-value.accent { color: var(--accent); }
+    .stat-value.success { color: var(--success); }
+    .stat-value.danger { color: var(--danger); }
+    .stat-value.warn { color: var(--warn); }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 0.82rem; color: var(--muted); margin-bottom: 6px; }
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 0.9rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+    textarea { resize: vertical; min-height: 90px; }
+    select option { background: var(--surface); }
+
+    /* Buttons */
+    .btn {
+      padding: 10px 20px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-success { background: var(--success); color: #0f1117; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+    .btn-sm { padding: 6px 14px; font-size: 0.8rem; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+    th { text-align: left; padding: 10px 14px; color: var(--muted); font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 14px; border-bottom: 1px solid rgba(42,45,58,0.6); }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(108,99,255,0.04); }
+
+    /* Badge */
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .badge-queued   { background: rgba(245,158,11,0.15); color: var(--warn); }
+    .badge-sent     { background: rgba(108,99,255,0.15); color: var(--accent); }
+    .badge-delivered{ background: rgba(0,212,170,0.15); color: var(--success); }
+    .badge-failed   { background: rgba(255,77,109,0.15); color: var(--danger); }
+    .badge-online   { background: rgba(0,212,170,0.15); color: var(--success); }
+    .badge-offline  { background: rgba(136,146,164,0.15); color: var(--muted); }
+    .badge-pending  { background: rgba(245,158,11,0.15); color: var(--warn); }
+
+    /* Toast */
+    #toast-container {
+      position: fixed;
+      bottom: 24px; right: 24px;
+      display: flex; flex-direction: column; gap: 10px;
+      z-index: 999;
+    }
+    .toast {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 18px;
+      font-size: 0.875rem;
+      min-width: 260px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+      animation: slideIn 0.2s ease;
+    }
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.error   { border-left: 4px solid var(--danger); }
+    @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 48px 24px; color: var(--muted); }
+    .empty-icon { font-size: 2.5rem; margin-bottom: 12px; }
+
+    /* Refresh row */
+    .toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+    .toolbar .spacer { flex: 1; }
+
+    /* API key banner */
+    .api-banner {
+      background: rgba(108,99,255,0.08);
+      border: 1px solid rgba(108,99,255,0.25);
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 24px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .api-banner input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      font-family: monospace;
+      font-size: 0.85rem;
+      padding: 0;
+    }
+
+    /* Two col */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid rgba(108,99,255,0.3);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      display: inline-block;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Truncate */
+    .truncate { max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  </style>
+</head>
+<body>
+
+<div class="layout">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">HTTP<span>SMS</span></div>
+    <div class="nav-item active" data-page="dashboard" onclick="navigate('dashboard', this)">
+      <span class="icon">📊</span> Dashboard
+    </div>
+    <div class="nav-item" data-page="send" onclick="navigate('send', this)">
+      <span class="icon">📤</span> Send SMS
+    </div>
+    <div class="nav-item" data-page="outbox" onclick="navigate('outbox', this)">
+      <span class="icon">📨</span> Outbox
+    </div>
+    <div class="nav-item" data-page="incoming" onclick="navigate('incoming', this)">
+      <span class="icon">📥</span> Incoming
+    </div>
+    <div class="nav-item" data-page="devices" onclick="navigate('devices', this)">
+      <span class="icon">📱</span> Devices
+    </div>
+    <div class="nav-item" data-page="settings" onclick="navigate('settings', this)">
+      <span class="icon">⚙️</span> Settings
+    </div>
+  </nav>
+
+  <!-- Main content -->
+  <main class="main">
+
+    <!-- API Key Banner -->
+    <div class="api-banner" id="api-banner">
+      <span>🔑 API Key:</span>
+      <input type="password" id="api-key-display" placeholder="Enter your API key to get started" />
+      <button class="btn btn-sm btn-primary" onclick="saveApiKey()">Save</button>
+      <button class="btn btn-sm btn-ghost" onclick="toggleApiKeyVisibility()">👁</button>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-subtitle">Overview of your SMS gateway</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadDashboard()">↻ Refresh</button>
+      </div>
+      <div class="cards-row" id="stats-row">
+        <div class="stat-card"><div class="stat-label">Total Sent</div><div class="stat-value accent" id="stat-total">—</div></div>
+        <div class="stat-card"><div class="stat-label">Delivered</div><div class="stat-value success" id="stat-delivered">—</div></div>
+        <div class="stat-card"><div class="stat-label">Failed</div><div class="stat-value danger" id="stat-failed">—</div></div>
+        <div class="stat-card"><div class="stat-label">Incoming</div><div class="stat-value warn" id="stat-incoming">—</div></div>
+        <div class="stat-card"><div class="stat-label">Devices</div><div class="stat-value" id="stat-devices">—</div></div>
+      </div>
+      <div class="two-col">
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:16px;">Recent Outbound</div>
+          <div class="table-wrap" id="recent-outbound-wrap"></div>
+        </div>
+        <div class="card">
+          <div style="font-weight:600;margin-bottom:16px;">Recent Incoming</div>
+          <div class="table-wrap" id="recent-incoming-wrap"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Send SMS -->
+    <div class="page" id="page-send">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Send SMS</div>
+          <div class="page-subtitle">Dispatch a message via your registered device</div>
+        </div>
+      </div>
+      <div class="card" style="max-width:520px;">
+        <div class="form-group">
+          <label>Device</label>
+          <select id="send-device"><option value="">Loading devices...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Recipient Phone Number</label>
+          <input type="tel" id="send-recipient" placeholder="+1234567890" />
+        </div>
+        <div class="form-group">
+          <label>Message</label>
+          <textarea id="send-message" placeholder="Type your message..."></textarea>
+          <div style="text-align:right;font-size:0.78rem;color:var(--muted);margin-top:4px;" id="char-count">0 / 160</div>
+        </div>
+        <button class="btn btn-primary" id="btn-send" onclick="submitSend()">Send Message</button>
+        <div id="send-result" style="margin-top:14px;font-size:0.85rem;"></div>
+      </div>
+    </div>
+
+    <!-- Outbox -->
+    <div class="page" id="page-outbox">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Outbox</div>
+          <div class="page-subtitle">All outbound messages</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <select id="outbox-filter-status" onchange="loadOutbox()" style="width:140px;">
+            <option value="">All Statuses</option>
+            <option value="queued">Queued</option>
+            <option value="sent">Sent</option>
+            <option value="delivered">Delivered</option>
+            <option value="failed">Failed</option>
+          </select>
+          <select id="outbox-filter-device" onchange="loadOutbox()" style="width:160px;">
+            <option value="">All Devices</option>
+          </select>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost btn-sm" onclick="loadOutbox()">↻ Refresh</button>
+        </div>
+        <div class="table-wrap" id="outbox-table-wrap">
+          <div class="empty"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Incoming -->
+    <div class="page" id="page-incoming">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Incoming SMS</div>
+          <div class="page-subtitle">Messages received by your devices</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="toolbar">
+          <select id="incoming-filter-device" onchange="loadIncoming()" style="width:160px;">
+            <option value="">All Devices</option>
+          </select>
+          <span class="spacer"></span>
+          <button class="btn btn-ghost btn-sm" onclick="loadIncoming()">↻ Refresh</button>
+        </div>
+        <div class="table-wrap" id="incoming-table-wrap">
+          <div class="empty"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Devices -->
+    <div class="page" id="page-devices">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Devices</div>
+          <div class="page-subtitle">Registered Android gateway devices</div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="loadDevices()">↻ Refresh</button>
+      </div>
+      <div class="card">
+        <div class="table-wrap" id="devices-table-wrap">
+          <div class="empty"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:20px;max-width:520px;">
+        <div style="font-weight:600;margin-bottom:16px;">Set Webhook for Device</div>
+        <div class="form-group">
+          <label>Device</label>
+          <select id="webhook-device"><option value="">Select device...</option></select>
+        </div>
+        <div class="form-group">
+          <label>Webhook URL</label>
+          <input type="url" id="webhook-url" placeholder="https://your-server.com/webhook" />
+        </div>
+        <button class="btn btn-primary" onclick="submitWebhook()">Save Webhook</button>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div class="page" id="page-settings">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Settings</div>
+          <div class="page-subtitle">Configure your dashboard connection</div>
+        </div>
+      </div>
+      <div class="card" style="max-width:520px;">
+        <div class="form-group">
+          <label>API Base URL</label>
+          <input type="url" id="settings-base-url" placeholder="http://localhost:3000" />
+        </div>
+        <div class="form-group">
+          <label>API Key</label>
+          <input type="password" id="settings-api-key" placeholder="Your API key" />
+        </div>
+        <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
+        <div id="settings-result" style="margin-top:14px;font-size:0.85rem;"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const store = {
+  get apiKey()  { return localStorage.getItem('sms_api_key') || ''; },
+  set apiKey(v) { localStorage.setItem('sms_api_key', v); },
+  get baseUrl() { return localStorage.getItem('sms_base_url') || window.location.origin; },
+  set baseUrl(v){ localStorage.setItem('sms_base_url', v); },
+};
+
+// ─── API ──────────────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const res = await fetch(store.baseUrl + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': store.apiKey,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function navigate(page, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  el.classList.add('active');
+  if (page === 'dashboard') loadDashboard();
+  if (page === 'send')      loadSendPage();
+  if (page === 'outbox')    { loadOutbox(); populateDeviceFilter('outbox-filter-device'); }
+  if (page === 'incoming')  { loadIncoming(); populateDeviceFilter('incoming-filter-device'); }
+  if (page === 'devices')   loadDevices();
+  if (page === 'settings')  loadSettings();
+}
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg, type = 'success') {
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function badge(status) {
+  return `<span class="badge badge-${status}">${status}</span>`;
+}
+function fmtDate(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleString();
+}
+function emptyState(msg) {
+  return `<div class="empty"><div class="empty-icon">📭</div>${msg}</div>`;
+}
+
+// ─── API Key banner ───────────────────────────────────────────────────────────
+function saveApiKey() {
+  const val = document.getElementById('api-key-display').value.trim();
+  if (!val) return toast('Enter an API key first', 'error');
+  store.apiKey = val;
+  toast('API key saved');
+}
+function toggleApiKeyVisibility() {
+  const inp = document.getElementById('api-key-display');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
+async function loadDashboard() {
+  try {
+    const [{ messages }, { messages: inc }, { devices }] = await Promise.all([
+      api('GET', '/api/v1/messages?limit=100'),
+      api('GET', '/api/v1/incoming?limit=100'),
+      api('GET', '/api/v1/devices'),
+    ]);
+
+    document.getElementById('stat-total').textContent    = messages.length;
+    document.getElementById('stat-delivered').textContent= messages.filter(m => m.status === 'delivered').length;
+    document.getElementById('stat-failed').textContent   = messages.filter(m => m.status === 'failed').length;
+    document.getElementById('stat-incoming').textContent = inc.length;
+    document.getElementById('stat-devices').textContent  = devices.length;
+
+    // Recent outbound
+    const recentOut = messages.slice(0, 5);
+    document.getElementById('recent-outbound-wrap').innerHTML = recentOut.length
+      ? `<table><thead><tr><th>To</th><th>Status</th><th>Time</th></tr></thead><tbody>
+          ${recentOut.map(m => `<tr>
+            <td class="truncate">${m.recipient}</td>
+            <td>${badge(m.status)}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${fmtDate(m.createdAt)}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+      : emptyState('No messages yet');
+
+    // Recent incoming
+    const recentIn = inc.slice(0, 5);
+    document.getElementById('recent-incoming-wrap').innerHTML = recentIn.length
+      ? `<table><thead><tr><th>From</th><th>Message</th><th>Time</th></tr></thead><tbody>
+          ${recentIn.map(m => `<tr>
+            <td class="truncate">${m.sender}</td>
+            <td class="truncate">${m.body}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${fmtDate(m.receivedAt)}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+      : emptyState('No incoming messages yet');
+
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ─── Send SMS ─────────────────────────────────────────────────────────────────
+async function loadSendPage() {
+  try {
+    const { devices } = await api('GET', '/api/v1/devices');
+    const sel = document.getElementById('send-device');
+    sel.innerHTML = devices.length
+      ? devices.map(d => `<option value="${d.deviceId}">${d.name || d.deviceId} (${d.status})</option>`).join('')
+      : '<option value="">No devices registered</option>';
+  } catch(e) { /* ignore */ }
+}
+
+document.getElementById('send-message').addEventListener('input', function() {
+  document.getElementById('char-count').textContent = `${this.value.length} / 160`;
+});
+
+async function submitSend() {
+  const deviceId  = document.getElementById('send-device').value;
+  const recipient = document.getElementById('send-recipient').value.trim();
+  const message   = document.getElementById('send-message').value.trim();
+  const result    = document.getElementById('send-result');
+
+  if (!deviceId || !recipient || !message) {
+    result.innerHTML = '<span style="color:var(--danger)">Please fill in all fields.</span>';
+    return;
+  }
+
+  const btn = document.getElementById('btn-send');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Sending…';
+  result.innerHTML = '';
+
+  try {
+    const data = await api('POST', '/api/v1/send', { deviceId, recipient, message });
+    result.innerHTML = `<span style="color:var(--success)">✓ Sent! Message ID: ${data.messageId}</span>`;
+    document.getElementById('send-message').value = '';
+    document.getElementById('send-recipient').value = '';
+    document.getElementById('char-count').textContent = '0 / 160';
+    toast('Message sent successfully');
+  } catch(e) {
+    result.innerHTML = `<span style="color:var(--danger)">✗ ${e.message}</span>`;
+    toast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = 'Send Message';
+  }
+}
+
+// ─── Outbox ───────────────────────────────────────────────────────────────────
+async function loadOutbox() {
+  const wrap   = document.getElementById('outbox-table-wrap');
+  const status = document.getElementById('outbox-filter-status').value;
+  const device = document.getElementById('outbox-filter-device').value;
+  wrap.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+
+  try {
+    let qs = '?limit=100';
+    if (status) qs += `&status=${status}`;
+    if (device) qs += `&deviceId=${device}`;
+    const { messages } = await api('GET', `/api/v1/messages${qs}`);
+
+    wrap.innerHTML = messages.length
+      ? `<table><thead><tr>
+            <th>Recipient</th><th>Message</th><th>Status</th><th>Device</th><th>Sent</th><th>Updated</th>
+          </tr></thead><tbody>
+          ${messages.map(m => `<tr>
+            <td>${m.recipient}</td>
+            <td class="truncate" title="${m.body}">${m.body}</td>
+            <td>${badge(m.status)}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${m.deviceId || '—'}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${fmtDate(m.createdAt)}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${fmtDate(m.updatedAt)}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+      : emptyState('No messages found');
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty" style="color:var(--danger)">${e.message}</div>`;
+  }
+}
+
+async function populateDeviceFilter(selectId) {
+  try {
+    const { devices } = await api('GET', '/api/v1/devices');
+    const sel = document.getElementById(selectId);
+    const existing = sel.innerHTML;
+    sel.innerHTML = '<option value="">All Devices</option>' +
+      devices.map(d => `<option value="${d.deviceId}">${d.name || d.deviceId}</option>`).join('');
+  } catch {}
+}
+
+// ─── Incoming ─────────────────────────────────────────────────────────────────
+async function loadIncoming() {
+  const wrap   = document.getElementById('incoming-table-wrap');
+  const device = document.getElementById('incoming-filter-device').value;
+  wrap.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+
+  try {
+    let qs = '?limit=100';
+    if (device) qs += `&deviceId=${device}`;
+    const { messages } = await api('GET', `/api/v1/incoming${qs}`);
+
+    wrap.innerHTML = messages.length
+      ? `<table><thead><tr>
+            <th>From</th><th>Message</th><th>Device</th><th>Webhook</th><th>Received</th>
+          </tr></thead><tbody>
+          ${messages.map(m => `<tr>
+            <td>${m.sender}</td>
+            <td class="truncate" title="${m.body}">${m.body}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${m.deviceId}</td>
+            <td>${badge(m.webhookStatus || 'pending')}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${fmtDate(m.receivedAt)}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+      : emptyState('No incoming messages found');
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty" style="color:var(--danger)">${e.message}</div>`;
+  }
+}
+
+// ─── Devices ──────────────────────────────────────────────────────────────────
+async function loadDevices() {
+  const wrap = document.getElementById('devices-table-wrap');
+  wrap.innerHTML = '<div class="empty"><div class="spinner"></div></div>';
+
+  try {
+    const { devices } = await api('GET', '/api/v1/devices');
+
+    wrap.innerHTML = devices.length
+      ? `<table><thead><tr>
+            <th>Device ID</th><th>Name</th><th>Status</th><th>Last Seen</th>
+          </tr></thead><tbody>
+          ${devices.map(d => `<tr>
+            <td style="font-family:monospace;font-size:0.8rem;">${d.deviceId}</td>
+            <td>${d.name || '<span style="color:var(--muted)">Unnamed</span>'}</td>
+            <td>${badge(d.status || 'offline')}</td>
+            <td style="color:var(--muted);font-size:0.8rem;">${fmtDate(d.lastSeen)}</td>
+          </tr>`).join('')}
+        </tbody></table>`
+      : emptyState('No devices registered yet');
+
+    // Populate webhook device select
+    const sel = document.getElementById('webhook-device');
+    sel.innerHTML = '<option value="">Select device...</option>' +
+      devices.map(d => `<option value="${d.deviceId}">${d.name || d.deviceId}</option>`).join('');
+
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty" style="color:var(--danger)">${e.message}</div>`;
+  }
+}
+
+async function submitWebhook() {
+  const deviceId   = document.getElementById('webhook-device').value;
+  const webhookUrl = document.getElementById('webhook-url').value.trim();
+  if (!deviceId || !webhookUrl) return toast('Select a device and enter a URL', 'error');
+
+  try {
+    await api('PATCH', `/api/v1/devices/${deviceId}/webhook`, { webhookUrl });
+    toast('Webhook saved');
+    document.getElementById('webhook-url').value = '';
+  } catch(e) {
+    toast(e.message, 'error');
+  }
+}
+
+// ─── Settings ─────────────────────────────────────────────────────────────────
+function loadSettings() {
+  document.getElementById('settings-base-url').value = store.baseUrl;
+  document.getElementById('settings-api-key').value  = store.apiKey;
+}
+
+function saveSettings() {
+  const url = document.getElementById('settings-base-url').value.trim();
+  const key = document.getElementById('settings-api-key').value.trim();
+  store.baseUrl = url || window.location.origin;
+  store.apiKey  = key;
+  document.getElementById('settings-result').innerHTML =
+    '<span style="color:var(--success)">✓ Settings saved</span>';
+  toast('Settings saved');
+  // Sync banner
+  document.getElementById('api-key-display').value = key;
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+(function init() {
+  if (store.apiKey) {
+    document.getElementById('api-key-display').value = store.apiKey;
+  }
+  loadDashboard();
+})();
+</script>
+</body>
+</html>

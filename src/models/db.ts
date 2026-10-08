@@ -38,6 +38,30 @@ export async function initDb() {
       webhookStatus TEXT DEFAULT 'pending',
       receivedAt DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      key TEXT UNIQUE NOT NULL,
+      label TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS webhooks (
+      id TEXT PRIMARY KEY,
+      url TEXT NOT NULL,
+      events TEXT NOT NULL DEFAULT 'message.phone.received',
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS user_profile (
+      id INTEGER PRIMARY KEY DEFAULT 1,
+      name TEXT DEFAULT 'Admin',
+      email TEXT DEFAULT '',
+      timezone TEXT DEFAULT 'UTC',
+      notifyHeartbeat INTEGER DEFAULT 1,
+      notifyWebhook INTEGER DEFAULT 1,
+      notifyStatus INTEGER DEFAULT 1,
+      notifyNewsletter INTEGER DEFAULT 1,
+      retentionDays INTEGER DEFAULT 365
+    );
+    INSERT OR IGNORE INTO user_profile (id) VALUES (1);
   `);
   console.log('Database initialized');
 }

@@ -41,7 +41,8 @@ class FcmService : FirebaseMessagingService() {
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
-                RetrofitClient.create(serverUrl).registerDevice(
+                val apiKey = Prefs.getApiKey(ctx)
+                RetrofitClient.create(serverUrl, apiKey).registerDevice(
                     RegisterRequest(deviceId, token, android.os.Build.MODEL)
                 )
             } catch (e: Exception) {

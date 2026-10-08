@@ -5,23 +5,25 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
+import android.view.View
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.firebase.messaging.FirebaseMessaging
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.auth.FirebaseAuth
 import com.httpsms.R
 import com.httpsms.data.Prefs
 import com.httpsms.databinding.ActivityMainBinding
-import com.httpsms.ui.MessageLogActivity
-import com.httpsms.network.RegisterRequest
 import com.httpsms.network.RetrofitClient
 import com.httpsms.services.GatewayService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.util.UUID
 
 class MainActivity : AppCompatActivity() {
 
@@ -34,58 +36,80 @@ class MainActivity : AppCompatActivity() {
         else Toast.makeText(this, "SMS permissions are required", Toast.LENGTH_LONG).show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Refresh status when returning from SettingsActivity
+        if (Prefs.isConfigured(this)) checkServerConfig()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        setSupportActionBar(binding.toolbar)
 
-        // Pre-fill saved settings
-        binding.etServerUrl.setText(Prefs.getServerUrl(this))
-        binding.etApiKey.setText(Prefs.getApiKey(this))
-        binding.etDeviceId.setText(Prefs.getDeviceId(this).ifBlank { UUID.randomUUID().toString() })
+        // Redirect to login if not authenticated
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+        }
 
-        binding.btnSave.setOnClickListener { saveAndRegister() }
+        val userName = Prefs.getUserName(this).ifBlank { Prefs.getUserEmail(this) }
+        if (userName.isNotBlank()) supportActionBar?.subtitle = userName
+
+        binding.btnCheckConfig.setOnClickListener { checkServerConfig() }
         binding.btnViewLog.setOnClickListener {
             startActivity(Intent(this, MessageLogActivity::class.java))
         }
+        binding.btnGoSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
 
         if (Prefs.isConfigured(this)) {
-            updateStatus("Configured — gateway active")
+            val active = Prefs.getActiveProfile(this)
+            setStatus("Gateway active · ${active?.phoneNumber ?: ""}", true)
+            binding.statsCard.visibility = View.VISIBLE
             requestPermissionsAndStart()
+            checkServerConfig()
+        } else {
+            setStatus("Not configured — open Settings", null)
         }
     }
 
-    private fun saveAndRegister() {
-        val serverUrl = binding.etServerUrl.text.toString().trim()
-        val apiKey    = binding.etApiKey.text.toString().trim()
-        val deviceId  = binding.etDeviceId.text.toString().trim()
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menuInflater.inflate(R.menu.main_menu, menu)
+        return true
+    }
 
-        if (serverUrl.isBlank() || apiKey.isBlank() || deviceId.isBlank()) {
-            Toast.makeText(this, "All fields are required", Toast.LENGTH_SHORT).show()
-            return
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.action_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java)); true
+            }
+            R.id.action_sign_out -> { signOut(); true }
+            else -> super.onOptionsItemSelected(item)
         }
+    }
 
-        Prefs.save(this, serverUrl, apiKey, deviceId)
-        updateStatus("Registering device…")
+    private fun checkServerConfig() {
+        val serverUrl = Prefs.getServerUrl(this)
+        val apiKey    = Prefs.getApiKey(this)
+        if (serverUrl.isBlank()) return
 
-        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    RetrofitClient.create(serverUrl).registerDevice(
-                        RegisterRequest(deviceId, token, Build.MODEL)
-                    )
-                    withContext(Dispatchers.Main) {
-                        updateStatus("Registered — gateway active")
-                        requestPermissionsAndStart()
-                    }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        updateStatus("Registration failed: ${e.message}")
-                    }
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val status = RetrofitClient.create(serverUrl, apiKey).getStatus()
+                withContext(Dispatchers.Main) {
+                    binding.tvStatDevices.text  = status.devices.toString()
+                    binding.tvStatMessages.text = status.messages.toString()
+                    binding.tvStatIncoming.text = status.incoming.toString()
+                    binding.statsCard.visibility = View.VISIBLE
+                    setStatus("Gateway active", true)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    setStatus("Server unreachable", false)
                 }
             }
-        }.addOnFailureListener {
-            updateStatus("Could not get FCM token: ${it.message}")
         }
     }
 
@@ -93,7 +117,6 @@ class MainActivity : AppCompatActivity() {
         val needed = mutableListOf(Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             needed.add(Manifest.permission.POST_NOTIFICATIONS)
-
         val missing = needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
@@ -102,10 +125,24 @@ class MainActivity : AppCompatActivity() {
 
     private fun startGateway() {
         ContextCompat.startForegroundService(this, Intent(this, GatewayService::class.java))
-        updateStatus("Gateway running")
     }
 
-    private fun updateStatus(msg: String) {
+    private fun setStatus(msg: String, online: Boolean?) {
         binding.tvStatus.text = msg
+        binding.statusDot.setBackgroundResource(when (online) {
+            true  -> R.drawable.status_dot_green
+            false -> R.drawable.status_dot_red
+            null  -> R.drawable.status_dot
+        })
+    }
+
+    private fun signOut() {
+        FirebaseAuth.getInstance().signOut()
+        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
+        GoogleSignIn.getClient(this, gso).signOut().addOnCompleteListener {
+            Prefs.clearUser(this)
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+        }
     }
 }

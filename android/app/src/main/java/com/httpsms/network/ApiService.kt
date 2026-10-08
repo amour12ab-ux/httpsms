@@ -1,9 +1,6 @@
 package com.httpsms.network
 
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.Query
+import retrofit2.http.*
 
 // ─── Request bodies ───────────────────────────────────────────────────────────
 
@@ -33,9 +30,34 @@ data class InboundMessage(
 data class MessagesResponse(val messages: List<OutboundMessage>)
 data class IncomingResponse(val messages: List<InboundMessage>)
 
+data class StatusResponse(
+    val status: String,
+    val version: String,
+    val devices: Int,
+    val messages: Int,
+    val incoming: Int
+)
+
+data class ApiKeyRequest(val label: String)
+data class ApiKeyResponse(val id: String, val key: String, val label: String)
+data class ApiKeyItem(val id: String, val label: String, val keyPreview: String, val createdAt: String)
+data class ApiKeysListResponse(val keys: List<ApiKeyItem>)
+
 // ─── Endpoints ────────────────────────────────────────────────────────────────
 
 interface ApiService {
+
+    @GET("api/v1/status")
+    suspend fun getStatus(): StatusResponse
+
+    @POST("api/v1/apikeys")
+    suspend fun createApiKey(@Body body: ApiKeyRequest): ApiKeyResponse
+
+    @GET("api/v1/apikeys")
+    suspend fun listApiKeys(): ApiKeysListResponse
+
+    @DELETE("api/v1/apikeys/{id}")
+    suspend fun deleteApiKey(@Path("id") id: String)
 
     @POST("api/v1/callback")
     suspend fun sendCallback(@Body body: CallbackRequest)

@@ -1,17 +1,15 @@
 import express from 'express';
+import path from 'path';
 import dotenv from 'dotenv';
 import { initDb } from './models/db';
+import { initFirebase } from './services/fcm';
 import { authMiddleware } from './middleware/auth';
 import {
-  sendSms,
-  listMessages,
-  getMessage,
-  updateStatus,
-  receiveIncoming,
-  listIncoming,
-  registerDevice,
-  listDevices,
-  setWebhook,
+  sendSms, listMessages, getMessage, updateStatus,
+  receiveIncoming, listIncoming, registerDevice, listDevices,
+  setWebhook, checkConfig, createApiKey, listApiKeys, deleteApiKey,
+  listWebhooks, createWebhook, updateWebhook, deleteWebhook,
+  rotateApiKey, getProfile, updateProfile,
 } from './controllers/smsController';
 
 dotenv.config();
@@ -19,34 +17,64 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+app.use((_, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-api-key, Authorization');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  next();
+});
+
 const PORT = process.env.PORT || 3000;
 
-// Health
-app.get('/', (_, res) => res.send('HTTPSMS Gateway running'));
+// Serve web dashboard
+app.use(express.static(path.join(__dirname, '../web')));
+app.get('/dashboard', (_, res) => res.sendFile(path.join(__dirname, '../web/index.html')));
 
-// Outbound SMS
+// ─── Health ───────────────────────────────────────────────────────────────────
+app.get('/', (_, res) => res.json({ status: 'ok', service: 'HTTPSMS Gateway', version: '1.0.0' }));
+app.get('/api/v1/status', authMiddleware, checkConfig);
+
+// ─── Profile ──────────────────────────────────────────────────────────────────
+app.get('/api/v1/profile', authMiddleware, getProfile);
+app.patch('/api/v1/profile', authMiddleware, updateProfile);
+
+// ─── Outbound SMS ─────────────────────────────────────────────────────────────
 app.post('/api/v1/send', authMiddleware, sendSms);
 app.get('/api/v1/messages', authMiddleware, listMessages);
 app.get('/api/v1/messages/:id', authMiddleware, getMessage);
 
-// Callbacks from Android app (no auth — device uses its own deviceId)
+// ─── Callbacks from Android ───────────────────────────────────────────────────
 app.post('/api/v1/callback', updateStatus);
 app.post('/api/v1/incoming', receiveIncoming);
 
-// Incoming message history
+// ─── Incoming history ─────────────────────────────────────────────────────────
 app.get('/api/v1/incoming', authMiddleware, listIncoming);
 
-// Device management
+// ─── Devices ──────────────────────────────────────────────────────────────────
 app.post('/api/v1/devices/register', registerDevice);
 app.get('/api/v1/devices', authMiddleware, listDevices);
 app.patch('/api/v1/devices/:deviceId/webhook', authMiddleware, setWebhook);
 
+// ─── API Keys ─────────────────────────────────────────────────────────────────
+app.post('/api/v1/apikeys', authMiddleware, createApiKey);
+app.get('/api/v1/apikeys', authMiddleware, listApiKeys);
+app.delete('/api/v1/apikeys/:id', authMiddleware, deleteApiKey);
+app.post('/api/v1/apikeys/rotate', authMiddleware, rotateApiKey);
+
+// ─── Webhooks ─────────────────────────────────────────────────────────────────
+app.get('/api/v1/webhooks', authMiddleware, listWebhooks);
+app.post('/api/v1/webhooks', authMiddleware, createWebhook);
+app.patch('/api/v1/webhooks/:id', authMiddleware, updateWebhook);
+app.delete('/api/v1/webhooks/:id', authMiddleware, deleteWebhook);
+
 async function startServer() {
   try {
     await initDb();
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+    initFirebase();
+    app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
   } catch (err) {
     console.error('Failed to start server:', err);
+    process.exit(1);
   }
 }
 

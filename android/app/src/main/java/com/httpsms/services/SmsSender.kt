@@ -69,12 +69,12 @@ object SmsSender {
                 smsManager.sendTextMessage(recipient, null, body, sentPI, deliveredPI)
             } else {
                 // Multipart — only track last part for delivery
-                val sentList = ArrayList<PendingIntent?>(parts.size).apply {
-                    repeat(parts.size - 1) { add(null) }
+                val sentList = ArrayList<PendingIntent>(parts.size).apply {
+                    repeat(parts.size - 1) { add(sentPI) }
                     add(sentPI)
                 }
-                val deliveredList = ArrayList<PendingIntent?>(parts.size).apply {
-                    repeat(parts.size - 1) { add(null) }
+                val deliveredList = ArrayList<PendingIntent>(parts.size).apply {
+                    repeat(parts.size - 1) { add(deliveredPI) }
                     add(deliveredPI)
                 }
                 smsManager.sendMultipartTextMessage(recipient, null, parts, sentList, deliveredList)
