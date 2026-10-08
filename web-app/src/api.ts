@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || ''
+const BASE = import.meta.env.VITE_API_URL ?? 'https://httpsms-ckx5.onrender.com'
 
 export function getStoredKey() {
   return localStorage.getItem('httpsms_key') || ''

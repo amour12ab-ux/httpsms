@@ -8,7 +8,9 @@ import { useToast } from '../components/ui'
 export default function Login() {
   const toast    = useToast()
   const navigate = useNavigate()
-  const [serverUrl, setServerUrl] = useState(window.location.origin)
+  const [serverUrl, setServerUrl] = useState(
+    import.meta.env.VITE_API_URL ?? 'https://httpsms-ckx5.onrender.com'
+  )
   const [apiKey, setApiKey]       = useState('')
   const [loading, setLoading]     = useState(false)
 
