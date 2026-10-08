@@ -24,17 +24,18 @@ object RetrofitClient {
         val authInterceptor = Interceptor { chain ->
             val builder = chain.request().newBuilder()
 
-            val firebaseUser = FirebaseAuth.getInstance().currentUser
-            if (firebaseUser != null) {
-                // Get a fresh ID token (refreshes automatically if expired)
-                val token = runBlocking {
-                    try { firebaseUser.getIdToken(false).await().token } catch (e: Exception) { null }
-                }
-                if (token != null) {
-                    builder.header("Authorization", "Bearer $token")
-                }
-            } else if (apiKey.isNotBlank()) {
+            if (apiKey.isNotBlank()) {
+                // API key takes priority — always works even without Firebase
                 builder.header("x-api-key", apiKey)
+            } else {
+                // Fall back to Firebase Bearer token
+                val firebaseUser = FirebaseAuth.getInstance().currentUser
+                if (firebaseUser != null) {
+                    val token = runBlocking {
+                        try { firebaseUser.getIdToken(false).await().token } catch (e: Exception) { null }
+                    }
+                    if (token != null) builder.header("Authorization", "Bearer $token")
+                }
             }
 
             chain.proceed(builder.build())
