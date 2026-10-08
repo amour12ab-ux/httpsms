@@ -1,6 +1,11 @@
 import express from 'express';
 import path from 'path';
 import dotenv from 'dotenv';
+dotenv.config();
+
+// Allow self-signed certs for Aiven PostgreSQL
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+
 import { initDb } from './models/db';
 import { initFirebase } from './services/fcm';
 import { authMiddleware } from './middleware/auth';
