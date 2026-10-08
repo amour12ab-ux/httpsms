@@ -5,11 +5,11 @@ services:
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
-      - key: PORT
-        value: 3000
+      - key: NODE_ENV
+        value: production
       - key: API_KEY
         sync: false
       - key: DATABASE_PATH
         value: ./sms.db
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
-        sync: false
+        value: ./firebase-service-account.json
