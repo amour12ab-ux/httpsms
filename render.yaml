@@ -9,7 +9,7 @@ services:
         value: production
       - key: API_KEY
         sync: false
-      - key: DATABASE_PATH
-        value: ./sms.db
+      - key: DATABASE_URL
+        sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         value: ./firebase-service-account.json
