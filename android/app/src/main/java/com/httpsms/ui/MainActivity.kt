@@ -12,9 +12,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.messaging.FirebaseMessaging
 import com.httpsms.R
 import com.httpsms.data.Prefs
 import com.httpsms.databinding.ActivityMainBinding
@@ -38,7 +36,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Refresh status when returning from SettingsActivity
         if (Prefs.isConfigured(this)) checkServerConfig()
     }
 
@@ -47,17 +44,6 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
         setSupportActionBar(binding.toolbar)
-
-        // Redirect to login if not authenticated
-        try {
-            if (FirebaseAuth.getInstance().currentUser == null) {
-                startActivity(Intent(this, LoginActivity::class.java)); finish(); return
-            }
-            val userName = Prefs.getUserName(this).ifBlank { Prefs.getUserEmail(this) }
-            if (userName.isNotBlank()) supportActionBar?.subtitle = userName
-        } catch (_: Exception) {
-            // Firebase not available — continue without auth
-        }
 
         binding.btnCheckConfig.setOnClickListener { checkServerConfig() }
         binding.btnViewLog.setOnClickListener {
@@ -88,7 +74,6 @@ class MainActivity : AppCompatActivity() {
             R.id.action_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java)); true
             }
-            R.id.action_sign_out -> { signOut(); true }
             else -> super.onOptionsItemSelected(item)
         }
     }
@@ -109,9 +94,7 @@ class MainActivity : AppCompatActivity() {
                     setStatus("Gateway active", true)
                 }
             } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    setStatus("Server unreachable", false)
-                }
+                withContext(Dispatchers.Main) { setStatus("Server unreachable", false) }
             }
         }
     }
@@ -137,15 +120,5 @@ class MainActivity : AppCompatActivity() {
             false -> R.drawable.status_dot_red
             null  -> R.drawable.status_dot
         })
-    }
-
-    private fun signOut() {
-        FirebaseAuth.getInstance().signOut()
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN).build()
-        GoogleSignIn.getClient(this, gso).signOut().addOnCompleteListener {
-            Prefs.clearUser(this)
-            startActivity(Intent(this, LoginActivity::class.java))
-            finish()
-        }
     }
 }

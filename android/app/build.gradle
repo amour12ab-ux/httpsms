@@ -23,9 +23,7 @@ android {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
-        debug {
-            minifyEnabled false
-        }
+        debug { minifyEnabled false }
     }
 
     compileOptions {
@@ -41,13 +39,9 @@ dependencies {
     implementation 'com.google.android.material:material:1.12.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
 
-    // Firebase
+    // Firebase — FCM only (no auth)
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-messaging-ktx'
-    implementation 'com.google.firebase:firebase-auth-ktx'
-
-    // Google Sign-In
-    implementation 'com.google.android.gms:play-services-auth:21.2.0'
 
     // HTTP
     implementation 'com.squareup.retrofit2:retrofit:2.11.0'
