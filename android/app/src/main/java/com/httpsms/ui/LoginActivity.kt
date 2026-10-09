@@ -19,7 +19,7 @@ class LoginActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityLoginBinding
     private lateinit var auth: FirebaseAuth
-    private lateinit var googleClient: GoogleSignInClient
+    private var googleClient: GoogleSignInClient? = null
 
     companion object {
         private const val RC_SIGN_IN = 9001
@@ -27,25 +27,48 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityLoginBinding.inflate(layoutInflater)
-        setContentView(binding.root)
 
-        auth = FirebaseAuth.getInstance()
+        // Guard: catch any crash during init (e.g. missing google-services config)
+        try {
+            binding = ActivityLoginBinding.inflate(layoutInflater)
+            setContentView(binding.root)
 
-        // If already signed in, go straight to main
-        if (auth.currentUser != null) {
-            goToMain(); return
-        }
+            auth = FirebaseAuth.getInstance()
 
-        val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(getString(R.string.default_web_client_id))
-            .requestEmail()
-            .build()
-        googleClient = GoogleSignIn.getClient(this, gso)
+            // If already signed in, go straight to main
+            if (auth.currentUser != null) {
+                goToMain(); return
+            }
 
-        binding.btnGoogleSignIn.setOnClickListener {
-            setLoading(true)
-            startActivityForResult(googleClient.signInIntent, RC_SIGN_IN)
+            // Try to set up Google Sign-In — may fail if OAuth client not configured
+            try {
+                val webClientId = getString(R.string.default_web_client_id)
+                if (webClientId.isNotBlank() && !webClientId.contains("YOUR_WEB")) {
+                    val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                        .requestIdToken(webClientId)
+                        .requestEmail()
+                        .build()
+                    googleClient = GoogleSignIn.getClient(this, gso)
+                }
+            } catch (e: Exception) {
+                // Google Sign-In not configured — button will be hidden
+            }
+
+            if (googleClient != null) {
+                binding.btnGoogleSignIn.visibility = View.VISIBLE
+                binding.btnGoogleSignIn.setOnClickListener {
+                    setLoading(true)
+                    startActivityForResult(googleClient!!.signInIntent, RC_SIGN_IN)
+                }
+            } else {
+                binding.btnGoogleSignIn.visibility = View.GONE
+                // Skip login entirely — go straight to main
+                goToMain()
+            }
+
+        } catch (e: Exception) {
+            // Last resort — if everything fails, go to main anyway
+            goToMain()
         }
     }
 
@@ -67,7 +90,6 @@ class LoginActivity : AppCompatActivity() {
         val credential = GoogleAuthProvider.getCredential(account.idToken, null)
         auth.signInWithCredential(credential)
             .addOnSuccessListener { result ->
-                // Save user info to prefs
                 result.user?.let { user ->
                     Prefs.saveUser(this, user.uid, user.displayName ?: "", user.email ?: "")
                 }

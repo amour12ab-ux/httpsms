@@ -49,12 +49,15 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(binding.toolbar)
 
         // Redirect to login if not authenticated
-        if (FirebaseAuth.getInstance().currentUser == null) {
-            startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+        try {
+            if (FirebaseAuth.getInstance().currentUser == null) {
+                startActivity(Intent(this, LoginActivity::class.java)); finish(); return
+            }
+            val userName = Prefs.getUserName(this).ifBlank { Prefs.getUserEmail(this) }
+            if (userName.isNotBlank()) supportActionBar?.subtitle = userName
+        } catch (_: Exception) {
+            // Firebase not available — continue without auth
         }
-
-        val userName = Prefs.getUserName(this).ifBlank { Prefs.getUserEmail(this) }
-        if (userName.isNotBlank()) supportActionBar?.subtitle = userName
 
         binding.btnCheckConfig.setOnClickListener { checkServerConfig() }
         binding.btnViewLog.setOnClickListener {
