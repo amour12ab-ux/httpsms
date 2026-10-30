@@ -53,7 +53,6 @@
         <!-- Foreground gateway service -->
         <service
             android:name=".services.GatewayService"
-            android:foregroundServiceType="dataSync"
             android:exported="false" />
 
         <!-- Incoming SMS receiver -->

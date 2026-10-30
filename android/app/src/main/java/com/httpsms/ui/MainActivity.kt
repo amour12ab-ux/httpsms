@@ -110,7 +110,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun startGateway() {
-        ContextCompat.startForegroundService(this, Intent(this, GatewayService::class.java))
+        try {
+            ContextCompat.startForegroundService(this, Intent(this, GatewayService::class.java))
+        } catch (e: Exception) {
+            // Fallback to regular start if foreground service fails
+            try {
+                startService(Intent(this, GatewayService::class.java))
+            } catch (e2: Exception) {
+                // Service failed to start — log but don't crash
+                android.util.Log.e("MainActivity", "Failed to start gateway service", e2)
+            }
+        }
     }
 
     private fun setStatus(msg: String, online: Boolean?) {
