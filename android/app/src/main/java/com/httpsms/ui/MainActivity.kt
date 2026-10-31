@@ -5,6 +5,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -12,7 +14,6 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
-import com.google.firebase.messaging.FirebaseMessaging
 import com.httpsms.R
 import com.httpsms.data.Prefs
 import com.httpsms.databinding.ActivityMainBinding
@@ -30,8 +31,12 @@ class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        if (results.values.all { it }) startGateway()
-        else Toast.makeText(this, "SMS permissions are required", Toast.LENGTH_LONG).show()
+        if (results.values.all { it }) {
+            // Delay service start slightly to let system settle after permission grant
+            Handler(Looper.getMainLooper()).postDelayed({ startGateway() }, 500)
+        } else {
+            Toast.makeText(this, "SMS permissions are required for the gateway", Toast.LENGTH_LONG).show()
+        }
     }
 
     override fun onResume() {
@@ -57,8 +62,11 @@ class MainActivity : AppCompatActivity() {
             val active = Prefs.getActiveProfile(this)
             setStatus("Gateway active · ${active?.phoneNumber ?: ""}", true)
             binding.statsCard.visibility = View.VISIBLE
-            requestPermissionsAndStart()
             checkServerConfig()
+            // Delay permission request to avoid immediate crash on startup
+            Handler(Looper.getMainLooper()).postDelayed({
+                requestPermissionsAndStart()
+            }, 300)
         } else {
             setStatus("Not configured — open Settings", null)
         }
@@ -100,26 +108,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestPermissionsAndStart() {
-        val needed = mutableListOf(Manifest.permission.SEND_SMS, Manifest.permission.RECEIVE_SMS)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+        val needed = mutableListOf(
+            Manifest.permission.SEND_SMS,
+            Manifest.permission.RECEIVE_SMS
+        )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             needed.add(Manifest.permission.POST_NOTIFICATIONS)
+        }
         val missing = needed.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
-        if (missing.isEmpty()) startGateway() else permissionLauncher.launch(missing.toTypedArray())
+        if (missing.isEmpty()) {
+            startGateway()
+        } else {
+            permissionLauncher.launch(missing.toTypedArray())
+        }
     }
 
     private fun startGateway() {
         try {
-            ContextCompat.startForegroundService(this, Intent(this, GatewayService::class.java))
-        } catch (e: Exception) {
-            // Fallback to regular start if foreground service fails
-            try {
-                startService(Intent(this, GatewayService::class.java))
-            } catch (e2: Exception) {
-                // Service failed to start — log but don't crash
-                android.util.Log.e("MainActivity", "Failed to start gateway service", e2)
+            val intent = Intent(this, GatewayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent)
+            } else {
+                startService(intent)
             }
+        } catch (e: Exception) {
+            android.util.Log.e("MainActivity", "Gateway service start failed", e)
         }
     }
 
