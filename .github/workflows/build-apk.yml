@@ -18,8 +18,9 @@ jobs:
           distribution: 'temurin'
 
       - name: Build APK
-        working-directory: android
         run: |
+          cd android
+          ls -la
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
