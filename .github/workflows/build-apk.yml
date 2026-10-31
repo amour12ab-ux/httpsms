@@ -17,10 +17,43 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Create google-services.json
+        run: |
+          cat > android/app/google-services.json << 'EOF'
+          {
+            "project_info": {
+              "project_number": "1069354309354",
+              "project_id": "httpsms-amour",
+              "storage_bucket": "httpsms-amour.firebasestorage.app"
+            },
+            "client": [
+              {
+                "client_info": {
+                  "mobilesdk_app_id": "1:1069354309354:android:e8f15129d0c7f542fda993",
+                  "android_client_info": {
+                    "package_name": "com.httpsms"
+                  }
+                },
+                "oauth_client": [],
+                "api_key": [
+                  {
+                    "current_key": "AIzaSyB1Xmauk2sLMDvmiG10zR0xzDKAHlzGkmY"
+                  }
+                ],
+                "services": {
+                  "appinvite_service": {
+                    "other_platform_oauth_client": []
+                  }
+                }
+              }
+            ],
+            "configuration_version": "1"
+          }
+          EOF
+
       - name: Build APK
         run: |
           cd android
-          ls -la
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
